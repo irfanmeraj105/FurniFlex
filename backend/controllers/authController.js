@@ -1,7 +1,6 @@
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-
+const generateToken = require("../utils/generateToken");
 // Signup
 exports.signup = async (req, res) => {
   try {
@@ -19,7 +18,17 @@ exports.signup = async (req, res) => {
     // create new user
     const user = await User.create({ name, email, password: hashedPassword });
 
-    res.status(201).json({ message: "Signup successful", user });
+    // user info (without password)
+    const userInfo = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    }; // generateToken
+
+    const token = generateToken(user._id, user.role);
+
+    res.status(201).json({ message: "Signup successful", userInfo, token });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -32,18 +41,16 @@ exports.login = async (req, res) => {
 
     // check user
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Invalid email or password" });
+    if (!user)
+      return res.status(400).json({ message: "Invalid email or password" });
 
     // compare password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid email or password" });
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid email or password" });
 
     // generate token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    const token = generateToken(user._id, user.role);
 
     res.json({ message: "Login successful", token });
   } catch (error) {
